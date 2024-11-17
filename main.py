@@ -191,3 +191,131 @@ class CreditRiskModel:
         
         return assessment
 
+    def generate_report(self, assessment: Dict) -> str:
+        """Generate a detailed credit risk assessment report."""
+        report = f"""
+CREDIT RISK ASSESSMENT REPORT
+============================
+Client: {assessment['client_name']}
+Date: {assessment['assessment_date']}
+
+EXECUTIVE SUMMARY
+----------------
+Overall Risk Score: {assessment['total_score']}/100
+Risk Rating: {assessment['risk_rating']}
+Probability of Default: {assessment['probability_of_default']}%
+
+COMPONENT SCORES
+---------------
+Financial Score: {assessment['component_scores']['financial_score']}/100
+Behavioral Score: {assessment['component_scores']['behavioral_score']}/100
+Market Score: {assessment['component_scores']['market_score']}/100
+Qualitative Score: {assessment['component_scores']['qualitative_score']}/100
+
+DETAILED ANALYSIS
+----------------
+1. Financial Analysis
+--------------------
+"""
+        
+        # Add financial ratios analysis
+        report += "Financial Ratios:\n"
+        for ratio, value in assessment['detailed_analysis']['financial_ratios'].items():
+            benchmark = self.industry_benchmarks.get(ratio, "N/A")
+            report += f"- {ratio.replace('_', ' ').title()}: {value:.2f} (Benchmark: {benchmark})\n"
+        
+        # Add behavioral analysis
+        report += "\n2. Payment Behavior Analysis\n"
+        report += "-------------------------\n"
+        behavior = assessment['detailed_analysis']['behavioral_analysis']
+        report += f"Total Payments Analyzed: {behavior['total_payments']}\n"
+        report += f"Late Payments: {behavior['late_payments']}\n"
+        report += f"Average Days Late: {behavior['average_days_late']:.1f}\n"
+        report += f"Missed Payments: {behavior['missed_payments']}\n"
+        
+        # Add market analysis
+        report += "\n3. Market Condition Analysis\n"
+        report += "-------------------------\n"
+        for factor, score in assessment['detailed_analysis']['market_analysis'].items():
+            report += f"{factor.replace('_', ' ').title()}: {score:.1f}/100\n"
+        
+        # Add qualitative analysis
+        report += "\n4. Qualitative Factors Analysis\n"
+        report += "-----------------------------\n"
+        for factor, score in assessment['detailed_analysis']['qualitative_analysis'].items():
+            report += f"{factor.replace('_', ' ').title()}: {score:.1f}/100\n"
+        
+        # Add risk assessment summary
+        report += f"""
+RISK ASSESSMENT SUMMARY
+----------------------
+The client presents a {assessment['risk_rating'].lower()} profile with a {assessment['probability_of_default']}% 
+probability of default. This assessment is based on a comprehensive analysis of financial, 
+behavioral, market, and qualitative factors.
+
+Key Strengths:
+- {self._identify_strengths(assessment)}
+
+Key Concerns:
+- {self._identify_concerns(assessment)}
+
+RECOMMENDATION
+-------------
+{self._generate_recommendation(assessment)}
+"""
+        
+        return report
+
+    def _identify_strengths(self, assessment: Dict) -> str:
+        """Identify key strengths from the assessment."""
+        strengths = []
+        
+        # Check financial ratios
+        financial_ratios = assessment['detailed_analysis']['financial_ratios']
+        for ratio, value in financial_ratios.items():
+            benchmark = self.industry_benchmarks.get(ratio)
+            if benchmark and ratio != 'debt_ratio':
+                if value > benchmark * 1.2:  # 20% better than benchmark
+                    strengths.append(f"Strong {ratio.replace('_', ' ')} ({value:.2f} vs benchmark {benchmark})")
+            elif ratio == 'debt_ratio' and value < benchmark * 0.8:  # 20% better than benchmark
+                strengths.append(f"Low {ratio.replace('_', ' ')} ({value:.2f} vs benchmark {benchmark})")
+        
+        # Check behavioral score
+        if assessment['component_scores']['behavioral_score'] > 80:
+            strengths.append("Excellent payment history")
+        
+        return '\n- '.join(strengths) if strengths else "No significant strengths identified"
+
+    def _identify_concerns(self, assessment: Dict) -> str:
+        """Identify key concerns from the assessment."""
+        concerns = []
+        
+        # Check financial ratios
+        financial_ratios = assessment['detailed_analysis']['financial_ratios']
+        for ratio, value in financial_ratios.items():
+            benchmark = self.industry_benchmarks.get(ratio)
+            if benchmark and ratio != 'debt_ratio':
+                if value < benchmark * 0.8:  # 20% worse than benchmark
+                    concerns.append(f"Weak {ratio.replace('_', ' ')} ({value:.2f} vs benchmark {benchmark})")
+            elif ratio == 'debt_ratio' and value > benchmark * 1.2:  # 20% worse than benchmark
+                concerns.append(f"High {ratio.replace('_', ' ')} ({value:.2f} vs benchmark {benchmark})")
+        
+        # Check behavioral score
+        if assessment['component_scores']['behavioral_score'] < 60:
+            concerns.append("Poor payment history")
+        
+        return '\n- '.join(concerns) if concerns else "No significant concerns identified"
+
+    def _generate_recommendation(self, assessment: Dict) -> str:
+        """Generate a recommendation based on the assessment."""
+        score = assessment['total_score']
+        pd = assessment['probability_of_default']
+        
+        if score >= self.risk_thresholds['LOW']:
+            return "Recommended for approval with standard terms and conditions."
+        elif score >= self.risk_thresholds['MEDIUM']:
+            return "Recommended for approval with enhanced monitoring and possible additional collateral requirements."
+        elif score >= self.risk_thresholds['HIGH']:
+            return "Recommended for approval only with substantial collateral and restrictive covenants."
+        else:
+            return "Not recommended for approval under current conditions."
